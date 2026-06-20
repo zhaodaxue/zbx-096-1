@@ -41,9 +41,17 @@ app.get('/api/residents/:id', async (req, res) => {
 app.post('/api/residents', async (req, res) => {
   try {
     const { name, room_number, is_archived } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: '姓名不能为空' });
+    }
+    if (!room_number || typeof room_number !== 'string' || !room_number.trim()) {
+      return res.status(400).json({ error: '房间号不能为空' });
+    }
+
     const result = await pool.query(
       'INSERT INTO residents (name, room_number, is_archived) VALUES ($1, $2, $3) RETURNING *',
-      [name, room_number, is_archived || false]
+      [name.trim(), room_number.trim(), is_archived || false]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -55,9 +63,17 @@ app.post('/api/residents', async (req, res) => {
 app.put('/api/residents/:id', async (req, res) => {
   try {
     const { name, room_number, is_archived } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: '姓名不能为空' });
+    }
+    if (!room_number || typeof room_number !== 'string' || !room_number.trim()) {
+      return res.status(400).json({ error: '房间号不能为空' });
+    }
+
     const result = await pool.query(
       'UPDATE residents SET name = $1, room_number = $2, is_archived = $3 WHERE id = $4 RETURNING *',
-      [name, room_number, is_archived, req.params.id]
+      [name.trim(), room_number.trim(), is_archived, req.params.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: '住民不存在' });
@@ -73,9 +89,26 @@ app.post('/api/pain-records', async (req, res) => {
   try {
     const { resident_id, record_date, time_slot, pain_level, used_slow_release } = req.body;
 
+    if (!resident_id || isNaN(parseInt(resident_id, 10))) {
+      return res.status(400).json({ error: '住民ID无效' });
+    }
+    if (!record_date || !/^\d{4}-\d{2}-\d{2}$/.test(record_date)) {
+      return res.status(400).json({ error: '日期格式无效，请使用 YYYY-MM-DD' });
+    }
+
+    const painLevelNum = Number(pain_level);
+    if (!Number.isInteger(painLevelNum) || painLevelNum < 0 || painLevelNum > 10) {
+      return res.status(400).json({ error: '疼痛评分必须是0到10之间的整数' });
+    }
+
+    const timeSlotNum = Number(time_slot);
+    if (!Number.isInteger(timeSlotNum) || ![0, 1, 2, 3].includes(timeSlotNum)) {
+      return res.status(400).json({ error: '时段无效' });
+    }
+
     const residentResult = await pool.query(
       'SELECT is_archived FROM residents WHERE id = $1',
-      [resident_id]
+      [parseInt(resident_id, 10)]
     );
     if (residentResult.rows.length === 0) {
       return res.status(404).json({ error: '住民不存在' });
@@ -84,20 +117,13 @@ app.post('/api/pain-records', async (req, res) => {
       return res.status(403).json({ error: '该住民已归档，无法新增记录' });
     }
 
-    if (pain_level < 0 || pain_level > 10) {
-      return res.status(400).json({ error: '疼痛评分必须在0到10之间' });
-    }
-    if (![0, 1, 2, 3].includes(time_slot)) {
-      return res.status(400).json({ error: '时段无效' });
-    }
-
     const result = await pool.query(
       `INSERT INTO pain_records (resident_id, record_date, time_slot, pain_level, used_slow_release)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (resident_id, record_date, time_slot)
        DO UPDATE SET pain_level = EXCLUDED.pain_level, used_slow_release = EXCLUDED.used_slow_release
        RETURNING *`,
-      [resident_id, record_date, time_slot, pain_level, used_slow_release || false]
+      [parseInt(resident_id, 10), record_date, timeSlotNum, painLevelNum, used_slow_release || false]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {

@@ -76,12 +76,14 @@ function NursePage() {
     }
   };
 
+  const normalizeDate = (d) => dayjs(d).format('YYYY-MM-DD');
+
   const chartData = useMemo(() => {
     const days = [];
     for (let i = 13; i >= 0; i--) {
       const date = dayjs().subtract(i, 'day');
       const dateStr = date.format('YYYY-MM-DD');
-      const dayRecords = painRecords.filter((r) => r.record_date === dateStr);
+      const dayRecords = painRecords.filter((r) => normalizeDate(r.record_date) === dateStr);
       const dayItem = {
         date: date.format('MM-DD'),
         fullDate: dateStr,
@@ -90,7 +92,7 @@ function NursePage() {
         const rec = dayRecords.find((r) => r.time_slot === idx);
         dayItem[label] = rec ? rec.pain_level : null;
       });
-      const hasMedDay = medDays.some((m) => m.adjust_date === dateStr);
+      const hasMedDay = medDays.some((m) => normalizeDate(m.adjust_date) === dateStr);
       if (hasMedDay) {
         dayItem.medDay = true;
       }
@@ -101,18 +103,19 @@ function NursePage() {
 
   const medDaySet = useMemo(() => {
     const set = new Set();
-    medDays.forEach((m) => set.add(m.adjust_date));
+    medDays.forEach((m) => set.add(normalizeDate(m.adjust_date)));
     return set;
   }, [medDays]);
 
   const avgPainByDate = useMemo(() => {
     const map = {};
     painRecords.forEach((r) => {
-      if (!map[r.record_date]) {
-        map[r.record_date] = { total: 0, count: 0 };
+      const d = normalizeDate(r.record_date);
+      if (!map[d]) {
+        map[d] = { total: 0, count: 0 };
       }
-      map[r.record_date].total += r.pain_level;
-      map[r.record_date].count++;
+      map[d].total += r.pain_level;
+      map[d].count++;
     });
     Object.keys(map).forEach((k) => {
       map[k] = Math.round((map[k].total / map[k].count) * 10) / 10;
